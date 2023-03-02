@@ -1,0 +1,72 @@
+version: '3.5'
+
+services:
+  back-api-web:
+    container_name: back-api-web
+    build:
+      context: ./docker/nginx
+      args:
+        UID: $U_ID
+    ports:
+      - 8001:80
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - back-api-network
+    depends_on:
+      - back-api-app
+
+  back-api-app:
+    container_name: back-api-app
+    build:
+      context: ./docker/php/
+      args:
+          UID: $U_ID
+    environment:
+      PHP_IDE_CONFIG: serverName=Docker
+      PHP_XDEBUG_ENABLED: 1
+      #XDEBUG_CONFIG: remote_host=172.17.0.1 remote_port=9005 # Linux users
+      XDEBUG_CONFIG: remote_host=host.docker.internal remote_port=9005 # MacOS users
+    volumes:
+      - ./:/var/www/html
+      #- ./docker/php/xdebug-linux.ini:/usr/local/etc/php/conf.d/xdebug.ini # Linux users
+      - ./docker/php/xdebug-macos.ini:/usr/local/etc/php/conf.d/xdebug.ini # MacOS users
+      - ~/.ssh/id_rsa:/home/var/.ssh/id_rsa
+    networks:
+      - back-api-network
+    depends_on:
+      - back-api-db
+
+  back-api-db:
+    container_name: back-api-db
+    image: mysql:8.0
+    ports:
+      - 33008:3306
+    environment:
+      MYSQL_DATABASE: db_maridaje
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: root
+    command: mysqld --sql_mode="STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION"
+    volumes:
+      - back-api-db-data:/var/lib/mysql
+    networks:
+      - back-api-network
+  smp-rabbitmq:
+    container_name: smp-rabbitmq
+    image: rabbitmq:3-management
+    volumes:
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    ports:
+      - 5672:5672
+      - 15672:15672
+    networks:
+      - back-api-network
+
+volumes:
+  back-api-db-data:
+
+networks:
+  back-api-network:
+    external: true
+
